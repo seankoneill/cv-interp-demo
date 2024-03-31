@@ -1,5 +1,4 @@
 import torch
-import copy
 import torch.nn as nn
 import torch.utils.data
 import torchvision
@@ -7,6 +6,9 @@ import torchvision.transforms as transforms
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
+import cv2 as cv
+import sklearn
+import sklearn.decomposition
 
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

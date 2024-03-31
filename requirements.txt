@@ -2,3 +2,4 @@ jupyter
 numpy
 scikit-learn
 torch
+opencv-python

@@ -9,11 +9,124 @@ import numpy as np
 import cv2 as cv
 import sklearn
 import sklearn.decomposition
+import sklearn.tree
+import graphviz
+import copy
 
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(DEVICE)
+print("Torch device:", DEVICE)
 
+def visualize_tree(dt,file_name='tree_viz'):
+    dot_data = sklearn.tree.export_graphviz(dt, out_file=None, filled=True)
+    graph = graphviz.Source(dot_data, format="svg")
+    graph.render(file_name)
+
+def bw_to_rgb(img):
+    i = np.zeros((28,28,3))
+    i[:,:,0] = img
+    i[:,:,1] = img
+    i[:,:,2] = img
+    return np.uint8(i)
+
+def draw_lines(img,lines,color=(255,0,0)):
+    i = copy.deepcopy(img)
+    for l in lines:
+        if np.isnan(l).any():
+            break
+        l = np.uint8(l)
+        x1,y1,x2,y2 = l[0],l[1],l[2],l[3]
+        cv.line(i, (x1,y1),(x2,y2), color, thickness=1, lineType=8) 
+    return i
+
+def draw_circles(img,circles,color=(255,0,0)):
+    i = copy.deepcopy(img)
+    for c in circles:
+        if np.isnan(c).any():
+            break
+        c = np.uint8(c)
+        x,y,r = c[0],c[1],c[2]
+        cv.circle(i, (x,y),r, color, thickness=1, lineType=8) 
+    return i
+
+def draw_corners(img,corners,color=(255,0,0)):
+    i = copy.deepcopy(img)
+    for c in corners:
+        if np.isnan(c).any():
+            break
+        c = np.uint8(c)
+        x,y, = c[0],c[1]
+        cv.line(i, (x,y),(x,y), color, thickness=1, lineType=8) 
+    return i
+
+def show_overlay(base_img,lines,circles,corners):
+    """
+    Find a way to draw lines,circles,corners
+    on top of an mnist image in different colours
+    """
+    img = bw_to_rgb(base_img)
+    img = draw_lines(img,lines,color=(255,0,0))
+    img = draw_circles(img,circles,color=(0,255,0))
+    img = draw_corners(img,corners,color=(0,0,255))
+    plt.title('MNIST Image overlay')
+    plt.imshow(img)
+    plt.show()
+
+def get_lines(img):
+    """
+    input: mnist image: (28,28)
+    out: four lines in (x1,y1,x2,y2) form: (4,4)
+    if less than four lines found,
+    replace with np.nan
+    """
+    # sort by x,y
+    lines = cv.HoughLinesP(img,rho = 1,theta = 1*np.pi/180,threshold = 20)
+    lines = np.array(lines)
+    return lines.reshape(-1,4)
+
+def get_circles(img):
+    """
+    input: mnist image: (28,28)
+    out: two circles in (x,y,r) (2,3)
+    if less than two circles found,
+    replace with np.nan
+    """
+    # fine tune and deal with not found
+    # sort by x,y
+    n,_ = img.shape
+    circles = cv.HoughCircles(
+            img,
+            cv.HOUGH_GRADIENT,
+            1,
+            n/8,
+            param1=50,
+            param2=10,
+            minRadius=1,
+            maxRadius=20
+            )
+    circles = np.array(circles)
+    return circles.reshape(-1,3)
+
+def get_corners(img,thresh=155):
+    """
+    input: mnist image: (28,28)
+    out: 5 circles in (x,y) form: (5,2)
+    if less than two circles found,
+    replace with np.nan
+    """
+    # use cv.cornerHarris
+    # sort by x,y
+    corners = cv.cornerHarris(img,2,3,0.04)
+    n,x = np.min(corners),np.max(corners)
+    corners = np.add(corners,-n) / np.add(x,-n) * 255
+    corners = np.array((corners > thresh).nonzero()).T
+    corners = np.flip(corners,axis=1)
+    return corners
+
+def show_mnist(img,title='MNIST Image'):
+    plt.imshow(img, cmap='gray')
+    plt.title('MNIST Image')
+    plt.show()
 
 class ConvNet(nn.Module):
     def __init__(self,
@@ -103,9 +216,9 @@ def train_network(net,trainloader,testloader,epochs=10,print_acc=False):
             test_accuracy = calc_accuracy(net,testloader)
             train_accuracy = calc_accuracy(net,trainloader)
             print('Epoch=%d Test Accuracy=%.3f' %
-                   (epoch + 1, test_accuracy))
+                  (epoch + 1, test_accuracy))
             print('Epoch=%d Train Accuracy=%.3f' %
-                   (epoch + 1, train_accuracy))
+                  (epoch + 1, train_accuracy))
 
     print('Finished Training')
     net = net.eval()
@@ -121,7 +234,7 @@ def show_images(images):
     l = len(images)
     h = int(np.floor(np.sqrt(l)))
     w = int(np.ceil(l / h))
-    
+
     _, ax = plt.subplots(h, w, figsize=(12, 12))
     for i in range(h):
         for j in range(w):

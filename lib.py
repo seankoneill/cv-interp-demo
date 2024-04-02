@@ -22,6 +22,19 @@ def visualize_tree(dt,file_name='tree_viz'):
     graph = graphviz.Source(dot_data, format="svg")
     graph.render(file_name)
 
+def get_feature_names():
+    names = []
+    for i in range(1,7):
+        for f in ['x1','y1','x2','y2']:
+            names.append(f"L{i} {f}")
+    for i in range(1,7):
+        for f in ['x','y','r']:
+            names.append(f"Ci{i} {f}")
+    for i in range(1,7):
+        for f in ['x','y']:
+            names.append(f"Co{i} {f}")
+    return names
+
 def bw_to_rgb(img):
     i = np.zeros((28,28,3))
     i[:,:,0] = img

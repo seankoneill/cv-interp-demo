@@ -12,7 +12,7 @@ import sklearn.decomposition
 import sklearn.tree
 import graphviz
 import copy
-
+import xgboost as xgb
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("Torch device:", DEVICE)
@@ -72,24 +72,28 @@ def show_overlay(base_img,lines,circles,corners):
     plt.imshow(img)
     plt.show()
 
-def get_lines(img):
+def get_lines(img,max_lines=6):
     """
     input: mnist image: (28,28)
     out: four lines in (x1,y1,x2,y2) form: (4,4)
     if less than four lines found,
-    replace with np.nan
+    replace with np.nan for xgboost
     """
     # sort by x,y
     lines = cv.HoughLinesP(img,rho = 1,theta = 1*np.pi/180,threshold = 20)
-    lines = np.array(lines)
-    return lines.reshape(-1,4)
+    res = np.full((max_lines,4),np.nan)
+    if lines is not None:
+        n_lines = min(max_lines,lines.shape[0])
+        lines = np.array(lines).reshape(-1,4)
+        res[:n_lines,:] = lines[:n_lines,:]
+    return res
 
-def get_circles(img):
+def get_circles(img,max_circles=6):
     """
     input: mnist image: (28,28)
     out: two circles in (x,y,r) (2,3)
     if less than two circles found,
-    replace with np.nan
+    replace with np.nan for xgboost
     """
     # fine tune and deal with not found
     # sort by x,y
@@ -104,29 +108,46 @@ def get_circles(img):
             minRadius=1,
             maxRadius=20
             )
-    circles = np.array(circles)
-    return circles.reshape(-1,3)
+    res = np.full((max_circles,3),np.nan)
+    if circles is not None:
+        n_circles = min(max_circles,circles.shape[0])
+        circles = np.array(circles).reshape(-1,3)
+        res[:n_circles,:] = circles[:n_circles,:]
+    return res
 
-def get_corners(img,thresh=155):
+def get_features(img):
+    lines = get_lines(img)
+    circles = get_circles(img)
+    corners = get_corners(img)
+    return np.concatenate((lines,circles,corners),axis=1)
+
+def get_corners(img,thresh=155,max_corners=6):
     """
     input: mnist image: (28,28)
     out: 5 circles in (x,y) form: (5,2)
     if less than two circles found,
-    replace with np.nan
+    replace with np.nan for xgboost
     """
     # use cv.cornerHarris
     # sort by x,y
     corners = cv.cornerHarris(img,2,3,0.04)
-    n,x = np.min(corners),np.max(corners)
-    corners = np.add(corners,-n) / np.add(x,-n) * 255
-    corners = np.array((corners > thresh).nonzero()).T
-    corners = np.flip(corners,axis=1)
-    return corners
+    res = np.full((max_corners,2),np.nan)
+    if corners is not None:
+        n,x = np.min(corners),np.max(corners)
+        corners = np.add(corners,-n) / np.add(x,-n) * 255
+        corners = np.array((corners > thresh).nonzero()).T
+        corners = np.flip(corners,axis=1)
+
+        n_corners = min(max_corners,corners.shape[0])
+        res[:n_corners,:] = corners[:n_corners,:]
+    return res
 
 def show_mnist(img,title='MNIST Image'):
     plt.imshow(img, cmap='gray')
     plt.title('MNIST Image')
     plt.show()
+
+
 
 class ConvNet(nn.Module):
     def __init__(self,

@@ -12,17 +12,13 @@ import sklearn.decomposition
 import sklearn.tree
 import graphviz
 import copy
-import xgboost as xgb
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print("Torch device:", DEVICE)
-
-def visualize_tree(dt,file_name='tree_viz'):
-    dot_data = sklearn.tree.export_graphviz(dt, out_file=None, filled=True)
-    graph = graphviz.Source(dot_data, format="svg")
-    graph.render(file_name)
 
 def get_feature_names():
+    """
+    Feature names for lines, circles, corners
+    with max_features = 6
+    """
     names = []
     for i in range(1,7):
         for f in ['x1','y1','x2','y2']:
@@ -36,6 +32,9 @@ def get_feature_names():
     return names
 
 def bw_to_rgb(img):
+    """
+    Expand bw mnist img to rgb
+    """
     i = np.zeros((28,28,3))
     i[:,:,0] = img
     i[:,:,1] = img
@@ -88,11 +87,10 @@ def show_overlay(base_img,lines,circles,corners):
 def get_lines(img,max_lines=6):
     """
     input: mnist image: (28,28)
-    out: four lines in (x1,y1,x2,y2) form: (4,4)
-    if less than four lines found,
-    replace with np.nan for xgboost
+    out: four lines in (x1,y1,x2,y2) form: (max_lines,4)
+    if less than max_lines lines found,
+    fill with np.nan 
     """
-    # sort by x,y
     lines = cv.HoughLinesP(img,rho = 1,theta = 1*np.pi/180,threshold = 20)
     res = np.full((max_lines,4),np.nan)
     if lines is not None:
@@ -104,12 +102,10 @@ def get_lines(img,max_lines=6):
 def get_circles(img,max_circles=6):
     """
     input: mnist image: (28,28)
-    out: two circles in (x,y,r) (2,3)
-    if less than two circles found,
-    replace with np.nan for xgboost
+    out: two circles in (x,y,r) (max_circles,3)
+    if less than max_circles circles found,
+    fill with np.nan
     """
-    # fine tune and deal with not found
-    # sort by x,y
     n,_ = img.shape
     circles = cv.HoughCircles(
             img,
@@ -127,12 +123,6 @@ def get_circles(img,max_circles=6):
         circles = np.array(circles).reshape(-1,3)
         res[:n_circles,:] = circles[:n_circles,:]
     return res
-
-def get_features(img):
-    lines = get_lines(img)
-    circles = get_circles(img)
-    corners = get_corners(img)
-    return np.concatenate((lines,circles,corners),axis=1)
 
 def get_corners(img,thresh=155,max_corners=6):
     """
@@ -155,12 +145,22 @@ def get_corners(img,thresh=155,max_corners=6):
         res[:n_corners,:] = corners[:n_corners,:]
     return res
 
+def get_features(img,max_features=6):
+    # Flatten everything out into a single feature vector
+    lines = get_lines(img,max_features).flatten()
+    circles = get_circles(img,max_features).flatten()
+    corners = get_corners(img,max_features).flatten()
+    return np.concatenate((lines,circles,corners))
+
 def show_mnist(img,title='MNIST Image'):
     plt.imshow(img, cmap='gray')
     plt.title('MNIST Image')
     plt.show()
 
 
+
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print("Torch device:", DEVICE)
 
 class ConvNet(nn.Module):
     def __init__(self,

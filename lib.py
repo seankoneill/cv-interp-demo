@@ -10,6 +10,7 @@ import cv2 as cv
 import sklearn
 import sklearn.decomposition
 import sklearn.tree
+from sklearn.ensemble import RandomForestClassifier
 import graphviz
 import copy
 

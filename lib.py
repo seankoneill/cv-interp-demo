@@ -154,7 +154,7 @@ def get_features(img,max_features=6):
 
 def show_mnist(img,title='MNIST Image'):
     plt.imshow(img, cmap='gray')
-    plt.title('MNIST Image')
+    plt.title(title)
     plt.show()
 
 
@@ -205,12 +205,12 @@ def get_dataloaders(batch_size=4):
             [transforms.ToTensor(),
              transforms.Normalize((0.5,), (0.5,))])
 
-    trainset = torchvision.datasets.FashionMNIST(root='./data', train=True,
+    trainset = torchvision.datasets.MNIST(root='./data', train=True,
                                                  download=True, transform=transform)
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                               shuffle=True, num_workers=2)
 
-    testset = torchvision.datasets.FashionMNIST(root='./data', train=False,
+    testset = torchvision.datasets.MNIST(root='./data', train=False,
                                                 download=True, transform=transform)
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                              shuffle=False, num_workers=2)
@@ -298,16 +298,16 @@ def calc_accuracy(net, dataloader):
 
 class ModelVisualizer():
     def __init__(self, model, input_shape, device):
-        self.model = model
+        self.model = model.eval()
         self.input_shape = input_shape
         self.device = device
 
-    def optimize_input(self, layer_no, target_index,epochs=200,start_img=None):
+    def optimize_input(self, layer_no, target_index,epochs=200,lr=0.1,start_img=None):
         if start_img == None:
             start_img = torch.rand(self.input_shape)
 
         start_img.requires_grad_(True)
-        optimizer = torch.optim.Adam([start_img], lr=0.1, weight_decay=1e-6)
+        optimizer = torch.optim.Adam([start_img], lr=lr, weight_decay=1e-6)
 
         for _ in range(1, epochs):
             optimizer.zero_grad()
@@ -321,3 +321,19 @@ class ModelVisualizer():
             loss.backward()
             optimizer.step()
         return start_img
+
+    def get_saliency(self, img, label=None):
+        img = img.to(DEVICE)
+        img.requires_grad_(True)
+        out = self.model(img)
+        # Get saliency for predicted class
+        if label == None:
+            pr,_ = torch.max(out,dim=1)
+            pr.backward()
+        # Saliency for specified class
+        else:
+            pr = out[label]
+            pr.backward()
+        slc = img.grad.cpu()
+        slc = (slc - slc.min())/(slc.max()-slc.min())
+        return slc

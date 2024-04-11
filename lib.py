@@ -10,7 +10,6 @@ import sklearn
 import sklearn.decomposition
 import sklearn.tree
 from sklearn.ensemble import RandomForestClassifier
-import graphviz
 import copy
 
 
@@ -42,6 +41,9 @@ def bw_to_rgb(img):
     return np.uint8(i)
 
 def draw_lines(img,lines,color=(255,0,0)):
+    """
+    Draw provided lines onto an image
+    """
     i = copy.deepcopy(img)
     for l in lines:
         if np.isnan(l).any():
@@ -52,6 +54,9 @@ def draw_lines(img,lines,color=(255,0,0)):
     return i
 
 def draw_circles(img,circles,color=(255,0,0)):
+    """
+    Draw provided circles onto an image
+    """
     i = copy.deepcopy(img)
     for c in circles:
         if np.isnan(c).any():
@@ -62,6 +67,9 @@ def draw_circles(img,circles,color=(255,0,0)):
     return i
 
 def draw_corners(img,corners,color=(255,0,0)):
+    """
+    Draw corners circles onto an image
+    """
     i = copy.deepcopy(img)
     for c in corners:
         if np.isnan(c).any():
@@ -146,7 +154,9 @@ def get_corners(img,thresh=155,max_corners=6):
     return res
 
 def get_features(img,max_features=6):
-    # Flatten everything out into a single feature vector
+    """
+    Get all features for an image and flatten into single feature vector
+    """
     lines = get_lines(img,max_features).flatten()
     circles = get_circles(img,max_features).flatten()
     corners = get_corners(img,max_features).flatten()
@@ -158,11 +168,15 @@ def show_mnist(img,title='MNIST Image'):
     plt.show()
 
 
+### CNN Library ###
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("Torch device:", DEVICE)
 
 class ConvNet(nn.Module):
+    """
+    Simple 3-layer Conv Net used in experiments
+    """
     def __init__(self,
                  kernel_size=3,
                  n_classes=10,
@@ -219,6 +233,9 @@ def get_dataloaders(batch_size=4):
 
 
 def train_network(net,trainloader,testloader,epochs=10,print_acc=False): 
+    """
+    PyTorch training loop
+    """
     # 4. Train the network
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(net.parameters())
@@ -265,6 +282,9 @@ def train_network(net,trainloader,testloader,epochs=10,print_acc=False):
 
 
 def show_images(images,cmap='gray'):
+    """
+    Displays a grid of images for feature visualization
+    """
     l = len(images)
     h = int(np.floor(np.sqrt(l)))
     w = int(np.ceil(l / h))
@@ -282,6 +302,9 @@ def show_images(images,cmap='gray'):
 
 
 def calc_accuracy(net, dataloader):
+    """
+    Calculate CNN accuracy using test dataloader
+    """
     correct = 0
     total = 0
     with torch.no_grad():
@@ -297,6 +320,11 @@ def calc_accuracy(net, dataloader):
         return 100 * correct/total
 
 class ModelVisualizer():
+    """
+    CNN visualizer that implements:
+    Feature Visualization
+    Pixel Saliency
+    """
     def __init__(self, model, input_shape, device):
         self.model = model.eval()
         self.input_shape = input_shape
@@ -307,6 +335,7 @@ class ModelVisualizer():
             start_img = torch.rand(self.input_shape)
 
         start_img.requires_grad_(True)
+        # Initialize optimizer with input image as parameters
         optimizer = torch.optim.Adam([start_img], lr=lr, weight_decay=1e-6)
 
         for _ in range(1, epochs):
@@ -314,9 +343,11 @@ class ModelVisualizer():
             x = start_img.to(self.device)
             for index, layer in enumerate(self.model.layers):
                 x = layer(x)
+                # Early stopping of model inference to target a specific layer
                 if index == layer_no:
                     break
             out = x[0,target_index]
+            # Objective of max mean activation
             loss = -torch.mean(out)
             loss.backward()
             optimizer.step()
@@ -339,6 +370,10 @@ class ModelVisualizer():
         return slc.reshape(28,28)
 
 def visualize_saliency(viz,img,label):
+    """
+    Display an image and its saliency map for
+    the class predicted by viz.model
+    """
     slc = viz.get_saliency(img)
     _, ax = plt.subplots(1, 2, figsize=(24, 24))
     ax[0].imshow(img.reshape(28,28),cmap='gray')

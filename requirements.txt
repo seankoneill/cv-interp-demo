@@ -2,4 +2,6 @@ jupyter
 numpy
 scikit-learn
 torch
+torchvision
+matplotlib
 opencv-python

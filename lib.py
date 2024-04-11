@@ -260,7 +260,7 @@ def train_network(net,trainloader,testloader,epochs=10,print_acc=False):
     test_accuracy = calc_accuracy(net,testloader)
     train_accuracy = calc_accuracy(net,trainloader)
     print('Test Accuracy=%.3f' %test_accuracy)
-    print('Train Accuracy=%.3f' %test_accuracy)
+    print('Train Accuracy=%.3f' %train_accuracy)
     return net, train_accuracy, test_accuracy
 
 

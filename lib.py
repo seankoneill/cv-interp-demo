@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 import torch.utils.data
 import torchvision
@@ -171,13 +170,13 @@ class ConvNet(nn.Module):
 
         self.conv1 = nn.Sequential(
                 nn.Conv2d(1,32,kernel_size),
-                nn.ReLU(),
+                nn.LeakyReLU(),
                 nn.MaxPool2d(kernel_size=2,stride=2)
                 )
 
         self.conv2 = nn.Sequential(
                 nn.Conv2d(32,64,kernel_size),
-                nn.ReLU(),
+                nn.LeakyReLU(),
                 nn.MaxPool2d(kernel_size=2,stride=2)
                 )
 
@@ -264,7 +263,7 @@ def train_network(net,trainloader,testloader,epochs=10,print_acc=False):
     return net, train_accuracy, test_accuracy
 
 
-def show_images(images):
+def show_images(images,cmap='gray'):
     l = len(images)
     h = int(np.floor(np.sqrt(l)))
     w = int(np.ceil(l / h))
@@ -274,7 +273,7 @@ def show_images(images):
         for j in range(w):
             idx = i*w + j
             if idx < l:
-                ax[i, j].imshow(images[i*w + j],cmap='gray')
+                ax[i, j].imshow(images[i*w + j],cmap=cmap)
             ax[i, j].axis('off')
 
     plt.subplots_adjust(wspace=0.1, hspace=0.1)
@@ -323,7 +322,7 @@ class ModelVisualizer():
         return start_img
 
     def get_saliency(self, img, label=None):
-        img = img.to(DEVICE)
+        img = img.to(DEVICE).reshape(self.input_shape)
         img.requires_grad_(True)
         out = self.model(img)
         # Get saliency for predicted class
@@ -332,8 +331,20 @@ class ModelVisualizer():
             pr.backward()
         # Saliency for specified class
         else:
-            pr = out[label]
+            pr = out[:,label]
             pr.backward()
         slc = img.grad.cpu()
         slc = (slc - slc.min())/(slc.max()-slc.min())
-        return slc
+        return slc.reshape(28,28)
+
+def visualize_saliency(viz,img,label):
+    slc = viz.get_saliency(img)
+    _, ax = plt.subplots(1, 2, figsize=(24, 24))
+    ax[0].imshow(img.reshape(28,28),cmap='gray')
+    ax[0].text(0.,-1.,f'Input ({label})',size=20)
+    ax[0].axis('off')
+    ax[1].imshow(slc,cmap='coolwarm')
+    ax[1].text(0.,-1.,'Saliency',size=20)
+    ax[1].axis('off')
+    plt.subplots_adjust(wspace=0.1, hspace=0.1)
+    plt.show()
